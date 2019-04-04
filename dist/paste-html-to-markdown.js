@@ -1,8 +1,8 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-  typeof define === 'function' && define.amd ? define(factory) :
-  (global = global || self, global.pasteHtmlToGovspeak = factory());
-}(this, function () { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
+  typeof define === 'function' && define.amd ? define(['exports'], factory) :
+  (global = global || self, factory(global.pasteHtmlToGovspeak = {}));
+}(this, function (exports) { 'use strict';
 
   function extend (destination) {
     for (var i = 1; i < arguments.length; i++) {
@@ -1087,7 +1087,7 @@
     return removeBrParagraphs(govspeakWithExtractedHeadings);
   }
 
-  function toGovspeak(html) {
+  function htmlToGovspeak(html) {
     var govspeak = service.turndown(html);
     return postProcess$1(govspeak);
   }
@@ -1269,7 +1269,7 @@
     element.dispatchEvent(event);
   }
 
-  function pasteHtmlToGovspeak(event) {
+  function pasteListener(event) {
     var element = event.target;
     var html = htmlFromPasteEvent(event);
     triggerPasteEvent(element, 'htmlpaste', html);
@@ -1277,14 +1277,17 @@
     triggerPasteEvent(element, 'textpaste', text);
 
     if (html && html.length) {
-      var govspeak = toGovspeak(html);
+      var govspeak = htmlToGovspeak(html);
       triggerPasteEvent(element, 'govspeak', govspeak);
       insertTextAtCursor(element, govspeak);
       event.preventDefault();
     }
   }
 
-  return pasteHtmlToGovspeak;
+  exports.pasteListener = pasteListener;
+  exports.htmlToGovspeak = htmlToGovspeak;
+
+  Object.defineProperty(exports, '__esModule', { value: true });
 
 }));
 //# sourceMappingURL=paste-html-to-markdown.js.map
