@@ -883,7 +883,9 @@
   }
 
   var service = new TurndownService({
-    bulletListMarker: '-'
+    bulletListMarker: '-',
+    listIndent: '   ' // 3 spaces
+
   }); // As a user may have pasted markdown we rather crudley
   // stop all escaping
 
@@ -1001,6 +1003,53 @@
     replacement: function replacement(content, node) {
       return node.getAttribute('href');
     }
+  }); // Google docs has a habit of producing nested lists that are not nested
+  // with valid HTML. Rather than embedding sub lists inside an <li> element they
+  // are nested in the <ul> or <ol> element.
+
+  service.addRule('invalidNestedLists', {
+    filter: function filter(node) {
+      var nodeName = node.nodeName.toLowerCase();
+
+      if ((nodeName === 'ul' || nodeName === 'ol') && node.previousElementSibling) {
+        var previousNodeName = node.previousElementSibling.nodeName.toLowerCase();
+        return previousNodeName === 'li';
+      }
+    },
+    replacement: function replacement(content, node, options) {
+      content = content.replace(/^\n+/, '') // remove leading newlines
+      .replace(/\n+$/, '') // replace trailing newlines
+      .replace(/\n/gm, "\n".concat(options.listIndent)); // indent all nested content in the list
+      // indent this list to match sibling
+
+      return options.listIndent + content + '\n';
+    }
+  }); // This is ported from https://github.com/domchristie/turndown/blob/80297cebeae4b35c8d299b1741b383c74eddc7c1/src/commonmark-rules.js#L61-L80
+  // It is modified in the following ways:
+  // - Only determines ol ordering based on li elements
+  // - Removes handling of ol start attribute as this doesn't affect govspeak output
+  // - Makes spacing consistent with gov.uk markdown guidance
+
+  service.addRule('listItems', {
+    filter: 'li',
+    replacement: function replacement(content, node, options) {
+      content = content.replace(/^\n+/, '') // remove leading newlines
+      .replace(/\n+$/, '\n') // replace trailing newlines with just a single one
+      .replace(/\n/gm, "\n".concat(options.listIndent)); // indent all nested content in the list
+
+      var prefix = options.bulletListMarker + ' ';
+      var parent = node.parentNode;
+
+      if (parent.nodeName.toLowerCase() === 'ol') {
+        var listItems = Array.prototype.filter.call(parent.children, function (element) {
+          return element.nodeName.toLowerCase() === 'li';
+        });
+        var index = Array.prototype.indexOf.call(listItems, node);
+        prefix = (index + 1).toString() + '. ';
+      }
+
+      return prefix + content + (node.nextSibling && !/\n$/.test(content) ? '\n' : '');
+    }
   });
 
   function removeBrParagraphs(govspeak) {
@@ -1018,7 +1067,7 @@
   function extractHeadingsFromLists(govspeak) {
     // This finds instances of headings within ordered lists and replaces them
     // with the headings only. This only applies to H2 and H3.
-    var headingsInListsRegExp = new RegExp(/\d\.\s{2}(#{2,3})/, 'g');
+    var headingsInListsRegExp = new RegExp(/\d\.\s(#{2,3})/, 'g');
     return govspeak.replace(headingsInListsRegExp, '$1');
   }
 
