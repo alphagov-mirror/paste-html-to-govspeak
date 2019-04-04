@@ -884,8 +884,19 @@
 
   var service = new TurndownService({
     bulletListMarker: '-',
-    listIndent: '   ' // 3 spaces
+    listIndent: '   ',
+    // 3 spaces
+    blankReplacement: function blankReplacement(content, node) {
+      if (node.isBlock) {
+        return '\n\n';
+      } // This fixes an issue with turndown where an element with a space
+      // inside can be removed causing a jarring HTML coversion.
 
+
+      var hasWhitespace = /\s/.test(node.textContent);
+      var hasFlanking = node.flankingWhitespace.trailing || node.flankingWhitespace.leading;
+      return hasWhitespace && !hasFlanking ? ' ' : '';
+    }
   }); // As a user may have pasted markdown we rather crudley
   // stop all escaping
 
