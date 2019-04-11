@@ -1078,7 +1078,7 @@
   function extractHeadingsFromLists(govspeak) {
     // This finds instances of headings within ordered lists and replaces them
     // with the headings only. This only applies to H2 and H3.
-    var headingsInListsRegExp = new RegExp(/\d\.\s(#{2,3})/, 'g');
+    var headingsInListsRegExp = /\d\.\s(#{2,3})/g;
     return govspeak.replace(headingsInListsRegExp, '$1');
   }
 
@@ -1092,108 +1092,107 @@
     return postProcess$1(govspeak);
   }
 
-  let browserSupportsTextareaTextNodes;
-
+  var browserSupportsTextareaTextNodes;
   /**
    * @param {HTMLElement} input
    * @return {boolean}
    */
+
   function canManipulateViaTextNodes(input) {
     if (input.nodeName !== "TEXTAREA") {
       return false;
     }
+
     if (typeof browserSupportsTextareaTextNodes === "undefined") {
-      const textarea = document.createElement("textarea");
+      var textarea = document.createElement("textarea");
       textarea.value = 1;
       browserSupportsTextareaTextNodes = !!textarea.firstChild;
     }
+
     return browserSupportsTextareaTextNodes;
   }
-
   /**
    * @param {HTMLTextAreaElement|HTMLInputElement} input
    * @param {string} text
    * @returns {void}
    */
-  function insertTextAtCursor(input, text) {
+
+
+  function index (input, text) {
     // Most of the used APIs only work with the field selected
-    input.focus();
+    input.focus(); // IE 8-10
 
-    // IE 8-10
     if (document.selection) {
-      const ieRange = document.selection.createRange();
-      ieRange.text = text;
+      var ieRange = document.selection.createRange();
+      ieRange.text = text; // Move cursor after the inserted text
 
-      // Move cursor after the inserted text
-      ieRange.collapse(false /* to the end */);
+      ieRange.collapse(false
+      /* to the end */
+      );
       ieRange.select();
-
       return;
-    }
+    } // Webkit + Edge
 
-    // Webkit + Edge
-    const isSuccess = document.execCommand("insertText", false, text);
+
+    var isSuccess = document.execCommand("insertText", false, text);
+
     if (!isSuccess) {
-      const start = input.selectionStart;
-      const end = input.selectionEnd;
-      // Firefox (non-standard method)
+      var start = input.selectionStart;
+      var end = input.selectionEnd; // Firefox (non-standard method)
+
       if (typeof input.setRangeText === "function") {
         input.setRangeText(text);
       } else {
         if (canManipulateViaTextNodes(input)) {
-          const textNode = document.createTextNode(text);
-          let node = input.firstChild;
+          var textNode = document.createTextNode(text);
+          var node = input.firstChild; // If textarea is empty, just insert the text
 
-          // If textarea is empty, just insert the text
           if (!node) {
             input.appendChild(textNode);
           } else {
             // Otherwise we need to find a nodes for start and end
-            let offset = 0;
-            let startNode = null;
-            let endNode = null;
+            var offset = 0;
+            var startNode = null;
+            var endNode = null; // To make a change we just need a Range, not a Selection
 
-            // To make a change we just need a Range, not a Selection
-            const range = document.createRange();
+            var range = document.createRange();
 
             while (node && (startNode === null || endNode === null)) {
-              const nodeLength = node.nodeValue.length;
+              var nodeLength = node.nodeValue.length; // if start of the selection falls into current node
 
-              // if start of the selection falls into current node
               if (start >= offset && start <= offset + nodeLength) {
-                range.setStart((startNode = node), start - offset);
-              }
+                range.setStart(startNode = node, start - offset);
+              } // if end of the selection falls into current node
 
-              // if end of the selection falls into current node
+
               if (end >= offset && end <= offset + nodeLength) {
-                range.setEnd((endNode = node), end - offset);
+                range.setEnd(endNode = node, end - offset);
               }
 
               offset += nodeLength;
               node = node.nextSibling;
-            }
+            } // If there is some text selected, remove it as we should replace it
 
-            // If there is some text selected, remove it as we should replace it
+
             if (start !== end) {
               range.deleteContents();
-            }
-
-            // Finally insert a new node. The browser will automatically
+            } // Finally insert a new node. The browser will automatically
             // split start and end nodes into two if necessary
+
+
             range.insertNode(textNode);
           }
         } else {
           // For the text input the only way is to replace the whole value :(
-          const value = input.value;
+          var value = input.value;
           input.value = value.slice(0, start) + text + value.slice(end);
         }
-      }
+      } // Correct the cursor position to be at the end of the insertion
 
-      // Correct the cursor position to be at the end of the insertion
-      input.setSelectionRange(start + text.length, start + text.length);
 
-      // Notify any possible listeners of the change
-      const e = document.createEvent("UIEvent");
+      input.setSelectionRange(start + text.length, start + text.length); // Notify any possible listeners of the change
+
+      var e = document.createEvent("UIEvent");
       e.initEvent("input", true, false);
       input.dispatchEvent(e);
     }
@@ -1279,13 +1278,13 @@
     if (html && html.length) {
       var govspeak = htmlToGovspeak(html);
       triggerPasteEvent(element, 'govspeak', govspeak);
-      insertTextAtCursor(element, govspeak);
+      index(element, govspeak);
       event.preventDefault();
     }
   }
 
-  exports.pasteListener = pasteListener;
   exports.htmlToGovspeak = htmlToGovspeak;
+  exports.pasteListener = pasteListener;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 
