@@ -897,8 +897,16 @@
       var hasFlanking = node.flankingWhitespace.trailing || node.flankingWhitespace.leading;
       return hasWhitespace && !hasFlanking ? ' ' : '';
     }
-  }); // As a user may have pasted markdown we rather crudley
+  }); // define all the elements we want stripped from output
+
+  var elementsToRemove = ['title', 'script', 'noscript', 'style', 'video', 'audio', 'object', 'iframe'];
+
+  for (var _i = 0, _elementsToRemove = elementsToRemove; _i < _elementsToRemove.length; _i++) {
+    var element = _elementsToRemove[_i];
+    service.remove(element);
+  } // As a user may have pasted markdown we rather crudley
   // stop all escaping
+
 
   service.escape = function (string) {
     return string;
@@ -962,6 +970,15 @@
 
       return "\n\n".concat(prefix).concat(content, "\n\n");
     }
+  }); // remove images
+  // this needs to be set as a rule rather than remove as it's part of turndown
+  // commonmark rules that needs overriding
+
+  service.addRule('img', {
+    filter: ['img'],
+    replacement: function replacement() {
+      return '';
+    }
   }); // remove bold
 
   service.addRule('bold', {
@@ -976,25 +993,11 @@
     replacement: function replacement(content) {
       return content;
     }
-  }); // remove images
-
-  service.addRule('img', {
-    filter: ['img'],
-    replacement: function replacement() {
-      return '';
-    }
   });
   service.addRule('removeEmptyParagraphs', {
     filter: function filter(node) {
       return node.nodeName.toLowerCase() === 'p' && node.textContent.trim() === '';
     },
-    replacement: function replacement() {
-      return '';
-    }
-  }); // remove style elements
-
-  service.addRule('style', {
-    filter: ['style'],
     replacement: function replacement() {
       return '';
     }
@@ -1087,7 +1090,9 @@
 
   function postProcess$1(govspeak) {
     var govspeakWithExtractedHeadings = extractHeadingsFromLists(govspeak);
-    return removeBrParagraphs(govspeakWithExtractedHeadings);
+    var brsRemoved = removeBrParagraphs(govspeakWithExtractedHeadings);
+    var whitespaceStripped = brsRemoved.trim();
+    return whitespaceStripped;
   }
 
   function htmlToGovspeak(html) {
