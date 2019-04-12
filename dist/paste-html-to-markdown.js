@@ -942,16 +942,19 @@
 
       return references;
     }
-  }); // Create a govspeak heading rule
+  }); // GOV.UK content authors are encouraged to only use h2 and h3 headers, this
+  // converts other headers to be one of these (except h6 which is converted
+  // to a paragraph
 
   service.addRule('heading', {
     filter: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
     replacement: function replacement(content, node) {
       var prefix;
+      var number = node.nodeName.charAt(1);
 
-      if (node.nodeName.charAt(1) === '2') {
+      if (number === '1' || number === '2') {
         prefix = '## ';
-      } else if (node.nodeName.charAt(1) === '3') {
+      } else if (number === '3' || number === '4' || number === '5') {
         prefix = '### ';
       } else {
         prefix = '';
