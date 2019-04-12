@@ -1089,6 +1089,75 @@
       return '';
     }
   });
+  service.addRule('removeWordListBullets', {
+    filter: function filter(node) {
+      if (node.nodeName.toLowerCase() === 'span') {
+        var style = node.getAttribute('style');
+        return style ? style.match(/mso-list:ignore/i) : false;
+      }
+    },
+    replacement: function replacement() {
+      return '';
+    }
+  });
+  service.addRule('addWordListItem', {
+    filter: function filter(node) {
+      if (node.nodeName.toLowerCase() !== 'p') {
+        return;
+      }
+
+      return node.className.match(/msolistparagraphcxsp/i);
+    },
+    replacement: function replacement(content, node, options) {
+      // the first item in a list (nested or otherwise) has first in the class
+      // name
+      var prefix = node.className.match(/first/i) ? '\n\n' : '';
+
+      var getLevel = function getLevel(element) {
+        var style = element.getAttribute('style');
+        var levelMatch = style ? style.match(/level(\d+)/) : null;
+        return levelMatch ? parseInt(levelMatch[1], 10) : 0;
+      }; // we can determine the nesting of a list by a mso-list style attribute
+      // with a level
+
+
+      var nodeLevel = getLevel(node);
+
+      for (var i = 1; i < nodeLevel; i++) {
+        prefix += options.listIndent;
+      } // the last item in a list has last in the class name
+
+
+      var suffix = node.className.match(/last/i) ? '\n\n' : '\n';
+      var listMarker = options.bulletListMarker;
+      var markerElement = node.querySelector('span[style="mso-list:Ignore"]'); // assume the presence of a period in a marker is an indicator of an
+      // ordered list
+
+      if (markerElement && markerElement.textContent.match(/\./)) {
+        var item = 1;
+        var potentialListItem = node.previousElementSibling; // loop through previous siblings to count list items
+
+        while (potentialListItem && potentialListItem.className.match(/msolistparagraphcxsp/i)) {
+          var itemLevel = getLevel(potentialListItem); // if we encounter the lists parent we've reached the end of counting
+
+          if (itemLevel < nodeLevel) {
+            break;
+          } // if on same level increment the list items
+
+
+          if (nodeLevel === itemLevel) {
+            item += 1;
+          }
+
+          potentialListItem = potentialListItem.previousElementSibling;
+        }
+
+        listMarker = "".concat(item, ".");
+      }
+
+      return "".concat(prefix).concat(listMarker, " ").concat(content.trim()).concat(suffix);
+    }
+  });
 
   function removeBrParagraphs(govspeak) {
     // This finds places where we have a br in a paragraph on it's own and
