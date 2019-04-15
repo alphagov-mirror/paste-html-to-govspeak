@@ -1099,36 +1099,40 @@
     replacement: function replacement() {
       return '';
     }
-  });
+  }); // Given a node it returns the Microsoft Word list level, returning undefined
+  // for an item that isn'ta Word list node
+
+  function getWordListLevel(node) {
+    if (node.nodeName.toLowerCase() !== 'p') {
+      return;
+    }
+
+    var style = node.getAttribute('style');
+    var levelMatch = style && style.match(/mso-list/i) ? style.match(/level(\d+)/) : null;
+    return levelMatch ? parseInt(levelMatch[1], 10) : undefined;
+  }
+
+  function isWordListItem(node) {
+    return !!getWordListLevel(node);
+  }
+
   service.addRule('addWordListItem', {
     filter: function filter(node) {
-      if (node.nodeName.toLowerCase() !== 'p') {
-        return;
-      }
-
-      return node.className.match(/msolistparagraphcxsp/i);
+      return isWordListItem(node);
     },
     replacement: function replacement(content, node, options) {
-      // the first item in a list (nested or otherwise) has first in the class
-      // name
-      var prefix = node.className.match(/first/i) ? '\n\n' : '';
-
-      var getLevel = function getLevel(element) {
-        var style = element.getAttribute('style');
-        var levelMatch = style ? style.match(/level(\d+)/) : null;
-        return levelMatch ? parseInt(levelMatch[1], 10) : 0;
-      }; // we can determine the nesting of a list by a mso-list style attribute
+      var firstListItem = !node.previousElementSibling || !isWordListItem(node.previousElementSibling);
+      var prefix = firstListItem ? '\n\n' : ''; // we can determine the nesting of a list by a mso-list style attribute
       // with a level
 
-
-      var nodeLevel = getLevel(node);
+      var nodeLevel = getWordListLevel(node);
 
       for (var i = 1; i < nodeLevel; i++) {
         prefix += options.listIndent;
-      } // the last item in a list has last in the class name
+      }
 
-
-      var suffix = node.className.match(/last/i) ? '\n\n' : '\n';
+      var lastListItem = !node.nextElementSibling || !isWordListItem(node.nextElementSibling);
+      var suffix = lastListItem ? '\n\n' : '\n';
       var listMarker = options.bulletListMarker;
       var markerElement = node.querySelector('span[style="mso-list:Ignore"]'); // assume the presence of a period in a marker is an indicator of an
       // ordered list
@@ -1137,10 +1141,11 @@
         var item = 1;
         var potentialListItem = node.previousElementSibling; // loop through previous siblings to count list items
 
-        while (potentialListItem && potentialListItem.className.match(/msolistparagraphcxsp/i)) {
-          var itemLevel = getLevel(potentialListItem); // if we encounter the lists parent we've reached the end of counting
+        while (potentialListItem) {
+          var itemLevel = getWordListLevel(potentialListItem); // if there are no more list items or we encounter the lists parent
+          // we don't need to count further
 
-          if (itemLevel < nodeLevel) {
+          if (!itemLevel || itemLevel < nodeLevel) {
             break;
           } // if on same level increment the list items
 
