@@ -1162,6 +1162,22 @@
 
       return "".concat(prefix).concat(listMarker, " ").concat(content.trim()).concat(suffix);
     }
+  }); // Remove links that have same href as link text and are the only content
+  // in a pasted document. This is because we assume here that they're trying
+  // to paste just a plain text URL.
+
+  service.addRule('removeAddressBarLinks', {
+    filter: function filter(node, options) {
+      if (node.nodeName.toLowerCase() !== 'a' || !node.getAttribute('href')) {
+        return;
+      }
+
+      var href = node.getAttribute('href').trim();
+      return href === node.textContent.trim() && href === node.ownerDocument.body.textContent.trim();
+    },
+    replacement: function replacement(content) {
+      return content;
+    }
   });
 
   function removeBrParagraphs(govspeak) {
