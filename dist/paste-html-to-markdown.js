@@ -1068,7 +1068,7 @@
       return prefix + content + (node.nextSibling && !/\n$/.test(content) ? '\n' : '');
     }
   });
-  service.addRule('removeWordCommentElements', {
+  service.addRule('removeMsWordCommentElements', {
     filter: function filter(node) {
       var nodeName = node.nodeName.toLowerCase();
       var classList = node.classList;
@@ -1089,7 +1089,7 @@
       return '';
     }
   });
-  service.addRule('removeWordListBullets', {
+  service.addRule('removeMsWordListBullets', {
     filter: function filter(node) {
       if (node.nodeName.toLowerCase() === 'span') {
         var style = node.getAttribute('style');
@@ -1100,9 +1100,9 @@
       return '';
     }
   }); // Given a node it returns the Microsoft Word list level, returning undefined
-  // for an item that isn'ta Word list node
+  // for an item that isn't a MS Word list node
 
-  function getWordListLevel(node) {
+  function getMsWordListLevel(node) {
     if (node.nodeName.toLowerCase() !== 'p') {
       return;
     }
@@ -1112,54 +1112,61 @@
     return levelMatch ? parseInt(levelMatch[1], 10) : undefined;
   }
 
-  function isWordListItem(node) {
-    return !!getWordListLevel(node);
+  function isMsWordListItem(node) {
+    return !!getMsWordListLevel(node);
+  } // Based on a node that is a list item in a MS Word document, this returns
+  // the marker for the list.
+
+
+  function msWordListMarker(node, bulletListMarker) {
+    var markerElement = node.querySelector('span[style="mso-list:Ignore"]'); // assume the presence of a period in a marker is an indicator of an
+    // ordered list
+
+    if (!markerElement || !markerElement.textContent.match(/\./)) {
+      return bulletListMarker;
+    }
+
+    var nodeLevel = getMsWordListLevel(node);
+    var item = 1;
+    var potentialListItem = node.previousElementSibling; // loop through previous siblings to count list items
+
+    while (potentialListItem) {
+      var itemLevel = getMsWordListLevel(potentialListItem); // if there are no more list items or we encounter the lists parent
+      // we don't need to count further
+
+      if (!itemLevel || itemLevel < nodeLevel) {
+        break;
+      } // if on same level increment the list items
+
+
+      if (nodeLevel === itemLevel) {
+        item += 1;
+      }
+
+      potentialListItem = potentialListItem.previousElementSibling;
+    }
+
+    return "".concat(item, ".");
   }
 
-  service.addRule('addWordListItem', {
+  service.addRule('addMsWordListItem', {
     filter: function filter(node) {
-      return isWordListItem(node);
+      return isMsWordListItem(node);
     },
     replacement: function replacement(content, node, options) {
-      var firstListItem = !node.previousElementSibling || !isWordListItem(node.previousElementSibling);
+      var firstListItem = !node.previousElementSibling || !isMsWordListItem(node.previousElementSibling);
       var prefix = firstListItem ? '\n\n' : ''; // we can determine the nesting of a list by a mso-list style attribute
       // with a level
 
-      var nodeLevel = getWordListLevel(node);
+      var nodeLevel = getMsWordListLevel(node);
 
       for (var i = 1; i < nodeLevel; i++) {
         prefix += options.listIndent;
       }
 
-      var lastListItem = !node.nextElementSibling || !isWordListItem(node.nextElementSibling);
+      var lastListItem = !node.nextElementSibling || !isMsWordListItem(node.nextElementSibling);
       var suffix = lastListItem ? '\n\n' : '\n';
-      var listMarker = options.bulletListMarker;
-      var markerElement = node.querySelector('span[style="mso-list:Ignore"]'); // assume the presence of a period in a marker is an indicator of an
-      // ordered list
-
-      if (markerElement && markerElement.textContent.match(/\./)) {
-        var item = 1;
-        var potentialListItem = node.previousElementSibling; // loop through previous siblings to count list items
-
-        while (potentialListItem) {
-          var itemLevel = getWordListLevel(potentialListItem); // if there are no more list items or we encounter the lists parent
-          // we don't need to count further
-
-          if (!itemLevel || itemLevel < nodeLevel) {
-            break;
-          } // if on same level increment the list items
-
-
-          if (nodeLevel === itemLevel) {
-            item += 1;
-          }
-
-          potentialListItem = potentialListItem.previousElementSibling;
-        }
-
-        listMarker = "".concat(item, ".");
-      }
-
+      var listMarker = msWordListMarker(node, options.bulletListMarker);
       return "".concat(prefix).concat(listMarker, " ").concat(content.trim()).concat(suffix);
     }
   }); // Remove links that have same href as link text and are the only content
