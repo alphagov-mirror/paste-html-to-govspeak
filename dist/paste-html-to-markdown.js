@@ -1269,8 +1269,11 @@
       if (typeof input.setRangeText === "function") {
         input.setRangeText(text);
       } else {
+        // To make a change we just need a Range, not a Selection
+        var range = document.createRange();
+        var textNode = document.createTextNode(text);
+
         if (canManipulateViaTextNodes(input)) {
-          var textNode = document.createTextNode(text);
           var node = input.firstChild; // If textarea is empty, just insert the text
 
           if (!node) {
@@ -1279,9 +1282,7 @@
             // Otherwise we need to find a nodes for start and end
             var offset = 0;
             var startNode = null;
-            var endNode = null; // To make a change we just need a Range, not a Selection
-
-            var range = document.createRange();
+            var endNode = null;
 
             while (node && (startNode === null || endNode === null)) {
               var nodeLength = node.nodeValue.length; // if start of the selection falls into current node
@@ -1302,14 +1303,20 @@
 
             if (start !== end) {
               range.deleteContents();
-            } // Finally insert a new node. The browser will automatically
-            // split start and end nodes into two if necessary
-
-
-            range.insertNode(textNode);
+            }
           }
+        } // If the node is a textarea and the range doesn't span outside the element
+        //
+        // Get the commonAncestorContainer of the selected range and test its type
+        // If the node is of type `#text` it means that we're still working with text nodes within our textarea element
+        // otherwise, if it's of type `#document` for example it means our selection spans outside the textarea.
+
+
+        if (canManipulateViaTextNodes(input) && range.commonAncestorContainer.nodeName === "#text") {
+          // Finally insert a new node. The browser will automatically split start and end nodes into two if necessary
+          range.insertNode(textNode);
         } else {
-          // For the text input the only way is to replace the whole value :(
+          // If the node is not a textarea or the range spans outside a textarea the only way is to replace the whole value
           var value = input.value;
           input.value = value.slice(0, start) + text + value.slice(end);
         }
@@ -1348,9 +1355,18 @@
     hiddenElement.focus();
     document.execCommand('paste');
     return hiddenElement.innerHTML;
+  } // Check for write access to clipboard, otherwise we're not allowed by the browser to paste in a contenteditable container
+
+
+  function haveClipboardAccess() {
+    return window.clipboardData && window.clipboardData.setData('Text', '');
   }
 
   function legacyHtmlFromPaste() {
+    if (!haveClipboardAccess()) {
+      return false;
+    }
+
     var hiddenElement = createHiddenElement();
     var html = getHtmlUsingHiddenElement(hiddenElement);
     removeElement(hiddenElement);
