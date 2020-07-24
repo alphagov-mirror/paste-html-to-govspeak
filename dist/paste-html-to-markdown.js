@@ -1,7 +1,7 @@
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
   typeof define === 'function' && define.amd ? define(['exports'], factory) :
-  (global = global || self, factory(global.pasteHtmlToGovspeak = {}));
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.pasteHtmlToGovspeak = {}));
 }(this, (function (exports) { 'use strict';
 
   function extend (destination) {
@@ -156,11 +156,25 @@
     replacement: function (content, node, options) {
       var className = node.firstChild.className || '';
       var language = (className.match(/language-(\S+)/) || [null, ''])[1];
+      var code = node.firstChild.textContent;
+
+      var fenceChar = options.fence.charAt(0);
+      var fenceSize = 3;
+      var fenceInCodeRegex = new RegExp('^' + fenceChar + '{3,}', 'gm');
+
+      var match;
+      while ((match = fenceInCodeRegex.exec(code))) {
+        if (match[0].length >= fenceSize) {
+          fenceSize = match[0].length + 1;
+        }
+      }
+
+      var fence = repeat(fenceChar, fenceSize);
 
       return (
-        '\n\n' + options.fence + language + '\n' +
-        node.firstChild.textContent +
-        '\n' + options.fence + '\n\n'
+        '\n\n' + fence + language + '\n' +
+        code.replace(/\n$/, '') +
+        '\n' + fence + '\n\n'
       )
     }
   };
@@ -591,13 +605,15 @@
     var trailing = '';
 
     if (!node.isBlock) {
-      var hasLeading = /^[ \r\n\t]/.test(node.textContent);
-      var hasTrailing = /[ \r\n\t]$/.test(node.textContent);
+      var hasLeading = /^\s/.test(node.textContent);
+      var hasTrailing = /\s$/.test(node.textContent);
+      var blankWithSpaces = node.isBlank && hasLeading && hasTrailing;
 
       if (hasLeading && !isFlankedByWhitespace('left', node)) {
         leading = ' ';
       }
-      if (hasTrailing && !isFlankedByWhitespace('right', node)) {
+
+      if (!blankWithSpaces && hasTrailing && !isFlankedByWhitespace('right', node)) {
         trailing = ' ';
       }
     }
